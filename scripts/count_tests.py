@@ -1,27 +1,26 @@
-"""Print the real test count (collected by pytest, not estimated).
+"""Print how many tests the suite collects (used in the README, checked in CI).
 
-Usage: python scripts/count_tests.py
+`-o addopts=` clears any `addopts = "-q"` in pyproject.toml. Without it,
+pytest runs at -qq, prints only per-file counts, and the total line this
+script reads is missing. Per-file counts are also summed as a fallback, and
+the script exits non-zero if neither works, so a broken count fails CI
+instead of printing 0.
 """
-from __future__ import annotations
-
-import os
+import re
 import subprocess
 import sys
 
-ROOT = os.path.join(os.path.dirname(__file__), "..")
-
-
-def main() -> None:
-    result = subprocess.run(
-        [sys.executable, "-m", "pytest", "tests", "--collect-only", "-q"],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    count = sum(1 for line in result.stdout.splitlines() if "::" in line)
-    print(count)
-
-
-if __name__ == "__main__":
-    main()
+proc = subprocess.run(
+    [sys.executable, "-m", "pytest", "--collect-only", "-q", "-o", "addopts=", "-p", "no:cacheprovider"],
+    capture_output=True, text=True,
+)
+out = proc.stdout
+m = re.search(r"(\d+) tests? collected", out)
+if m:
+    n = int(m.group(1))
+else:
+    per_file = re.findall(r"^\S+\.py: (\d+)$", out, flags=re.M)
+    if not per_file:
+        sys.exit(f"could not read a test count from pytest output (exit {proc.returncode})")
+    n = sum(int(x) for x in per_file)
+print(f"{n} tests collected")

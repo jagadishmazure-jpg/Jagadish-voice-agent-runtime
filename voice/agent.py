@@ -89,7 +89,10 @@ class SupportAgent:
             if order_id in self.cancelled:
                 return AgentReply(text=f"Order {order_id} is already cancelled.")
             order = ORDERS.get(order_id)
-            item = order["item"] if order else "item"
+            if order is None:
+                # Never offer to cancel an order that does not exist.
+                return AgentReply(text=self._status_text(order_id))
+            item = order["item"]
             action = PendingAction(
                 kind="cancel_order",
                 order_id=order_id,
@@ -134,6 +137,8 @@ class SupportAgent:
 
     def execute(self, action: PendingAction) -> str:
         if action.kind == "cancel_order":
+            if action.order_id not in ORDERS:
+                return f"I could not find order {action.order_id}, so nothing was cancelled."
             self.cancelled.add(action.order_id)
             return (
                 f"Done. Order {action.order_id} has been cancelled, "

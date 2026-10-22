@@ -12,6 +12,7 @@ Anything ambiguous is a re-ask, never a yes.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from .agent import PendingAction
@@ -23,6 +24,7 @@ HANDOFF_OFFER_TEXT = (
 )
 
 _YES = {"yes", "yeah", "yep", "confirm", "correct", "go ahead", "please do", "yes please"}
+_NEGATION_WORDS = {"no", "not", "don't", "dont", "nope", "stop", "wait", "never", "cancel"}
 _NO = {"no", "nope", "don't", "do not", "stop", "never mind", "cancel that"}
 
 
@@ -61,7 +63,8 @@ class GateResult:
 class ConfirmationGate:
     """Holds at most one pending side-effecting action awaiting a spoken yes."""
 
-    def __init__(self, max_reprompts: int = 1) -> None:
+    def __init__(self, max_reprompts: int = 1, min_confidence: float = 0.65) -> None:
+        self.min_confidence = min_confidence
         self.pending: PendingAction | None = None
         self.max_reprompts = max_reprompts
         self._reprompts = 0
@@ -73,16 +76,23 @@ class ConfirmationGate:
     @staticmethod
     def _classify(text: str) -> str:
         t = " ".join(text.lower().strip(" .!?").split())
-        if t in _YES or t.startswith("yes"):
+        words = set(re.findall(r"[a-z']+", t))
+        # Any negation or hesitation anywhere vetoes a yes: "yes, wait, no"
+        # and "yesterday I said no" used to execute via startswith("yes").
+        negated = bool(words & _NEGATION_WORDS) or any(p in t for p in _NO if " " in p)
+        if t in _YES or (re.match(r"yes\b", t) and not negated):
             return "yes"
         if t in _NO or t.startswith("no") or t.startswith("don't") or t.startswith("do not"):
             return "no"
         return "ambiguous"
 
-    def respond(self, text: str) -> GateResult:
+    def respond(self, text: str, confidence: float = 1.0) -> GateResult:
         if self.pending is None:
             return GateResult(status="none")
         verdict = self._classify(text)
+        if verdict == "yes" and confidence < self.min_confidence:
+            # A garbled "yes" is not consent for a side effect.
+            verdict = "ambiguous"
         if verdict == "yes":
             action, self.pending = self.pending, None
             return GateResult(status="executed", action=action)

@@ -263,7 +263,7 @@ class VoicePipeline:
         self.clock.advance(self.clarify_think_ms)
 
         pending = self.gate.pending
-        result = self.gate.respond(text)
+        result = self.gate.respond(text, confidence)
         record.events.append(f"confirmation_{result.status}")
         if result.status == "executed" and result.action is not None:
             message = self.agent.execute(result.action)

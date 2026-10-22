@@ -1,5 +1,7 @@
 # Voice Agent Runtime
 
+## Recruiter summary
+
 **Problem.** A text agent receives a finished message and returns one. A
 voice agent lives in a stream: words arrive incrementally, the caller can
 talk over the reply, recognition is sometimes just wrong, and every stage
@@ -14,7 +16,7 @@ detection, confidence fallbacks (clarify → human handoff), and a spoken
 confirmation gate for side-effecting actions. Everything runs on an
 injectable simulated clock — no audio hardware, fully deterministic.
 
-**Proof.** 91 offline tests; an 8-call scripted scenario suite completes
+**Proof.** 98 offline tests; an 8-call scripted scenario suite completes
 8/8 tasks with time-to-first-audio p95 of 430 ms against an 800 ms budget,
 1/1 successful interruptions, and 10/10 appropriate fallbacks (all numbers
 from real runs of the suite, below).
@@ -106,7 +108,7 @@ the agent never believes it was heard.
 
 ```bash
 python demos/demo_run.py       # scenario suite
-python -m pytest tests/        # 91 tests, ~0.3s, stdlib only
+python -m pytest tests/        # 98 tests, ~0.3s, stdlib only
 python scripts/count_tests.py  # prints the real collected test count
 ```
 
@@ -145,9 +147,65 @@ python scripts/count_tests.py  # prints the real collected test count
 | Built | Streaming STT/TTS fakes, latency budgets + ledger with percentiles and breach flagging |
 | Built | End-of-turn detection; barge-in during SPEAKING (stop + discard accounting) and during THINKING (supersede) |
 | Built | Confidence fallbacks (clarify → handoff) and the spoken confirmation gate |
-| Built | 8-scenario eval suite with task-completion / TTFA / interruption / fallback metrics; 91 tests |
+| Built | 8-scenario eval suite with task-completion / TTFA / interruption / fallback metrics; 98 tests |
 | Written-not-run | Adapter guidance for real STT/TTS providers (docs/implementation-guide.md) — interfaces specified, no provider integrated |
+| Built | CI: ruff, pytest, README-vs-fresh-run check, hashed brand check, gitleaks (full history); CodeQL; Dependabot; `main` rulesets |
 | Planned | Real audio path (VAD end-of-turn, telephony/WebRTC), PII redaction on transcripts, concurrent sessions and provider rate-limit handling |
+
+## Verified numbers (regenerated in CI)
+
+CI re-runs these commands and fails if the blocks below drift
+(`python scripts/render_docs.py --check`).
+
+<!-- run: python scripts/count_tests.py -->
+```text
+98 tests collected
+```
+<!-- /run -->
+
+<!-- run: python demos/demo_run.py -->
+```text
+Voice agent runtime - scripted scenario suite
+============================================================
+[PASS] clean_order_status: 1 turns, breaches: none
+[PASS] barge_in_mid_reply: 2 turns, breaches: none
+[PASS] noisy_low_confidence: 2 turns, breaches: none
+[PASS] cancel_with_confirmation: 2 turns, breaches: none
+[PASS] cancel_rejected_at_confirmation: 2 turns, breaches: none
+[PASS] barge_in_during_thinking: 2 turns, breaches: none
+[PASS] handoff_request: 1 turns, breaches: none
+[PASS] long_reply_budget_breach: 1 turns, breaches: end_to_end 5470ms>1500ms
+------------------------------------------------------------
+task completion:          8/8 (100%)
+time-to-first-audio p95:  430 ms (budget 800 ms)
+interruption success:     1/1 (100%)
+fallback appropriateness: 10/10 (100%)
+total budget breaches:    1
+```
+<!-- /run -->
+
+## Review fixes (portfolio-standard review, 2026-10-22)
+
+Found in an independent review and fixed, each pinned by a test in
+`tests/test_review_fixes.py`:
+
+1. **A garbled "yes" executed a cancellation.** The guardrail section
+   already promised "never guess on low confidence ... confirmations
+   alike", but the confirmation gate ignored STT confidence. A 0.30
+   confidence "yes" now re-asks instead of executing.
+2. **"Yes, wait, no" was consent.** The gate used `startswith("yes")`, so
+   "yes, wait, no", "yes, but don't cancel it" and "yesterday I said no"
+   all executed. A yes now needs a word-boundary match and no negation or
+   hesitation word anywhere in the reply.
+3. **Unknown orders could be "cancelled".** Asking to cancel `CP-9999`
+   offered a confirmation and, on yes, recorded a cancellation and said
+   "Done". The agent now refuses before the gate, and `execute` refuses
+   too (defence in depth).
+
+## Threat model and decisions
+
+- [docs/threat-model.md](docs/threat-model.md) — STRIDE + OWASP LLM Top 10.
+- [docs/adr/](docs/adr/) — key design decisions.
 
 ## Repository map
 
