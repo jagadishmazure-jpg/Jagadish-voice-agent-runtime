@@ -27,6 +27,7 @@ SKIP = {"scripts/check_brands.py"}
 TEXT = re.compile(r"\.(py|md|txt|json|ya?ml|toml|csv|sql|html|ts|js)$")
 
 TERM_HASHES = frozenset({
+    "7de355f411617866ac535b498fc7b2b1fe58d0f028146dd8276a4ef146bf3ad6",
     "712c9df0397999977db3d6223cddf2d8eddce63c1cde2773242f2d805f14cacf",
     "6c4e02093d91827019c136ebe2d063fecee73cb9e56dcdb96b0a3df52f38682d",
     "1264de97e7d46db15cc30796eeb6138a68431cd581ba51706517c86a65821278",
@@ -107,6 +108,7 @@ TERM_HASHES = frozenset({
 })
 
 SPELLING_HASHES = frozenset({
+    "1d07db1e2ee77eafe4189521db8e37a5e646b662a3ae47be4d6f5b8f2b48ac78",
     "2a221fa7abe9b2677c451bbbc35638f40e77031d1f0cb7cc2079a601d6bc9f88",
     "7c68dcb63c2a534f7f9318466f4498f404a5519400cc4170cf43aef1975db817",
     "7c7393f9939e6c1c46878d7c3c3b3797e35bbfb30382d58ecebde667a5cf586d",
@@ -226,6 +228,10 @@ def main(argv: list[str]) -> int:
     if len(argv) == 3 and argv[1] == "--hash":
         print(f"term:     {digest(argv[2].lower())}\nspelling: {digest(argv[2])}")
         return 0
+    if not TERM_HASHES or not SPELLING_HASHES:
+        print("Brand blocklist is empty; refusing to report a pass.")
+        return 1
+    print(f"Blocklist: {len(TERM_HASHES)} hashed terms.")
     root = pathlib.Path(__file__).resolve().parent.parent
     files = subprocess.run(["git", "-C", str(root), "ls-files", "-co", "--exclude-standard"],
                            capture_output=True, text=True, check=True).stdout.split()

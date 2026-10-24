@@ -61,3 +61,18 @@ end-to-end breaches with a healthy time-to-first-audio point at reply
   habitually interrupt are segments to delete.
 - Load behaviour: concurrent sessions, provider rate limits, and graceful
   degradation (shorter replies, faster voice) under latency pressure.
+
+## AI + human collaboration (contact/)
+
+1. Run `python demos/handoff_demo.py` — 300 seeded calls, prints repeat
+   questions with/without the packet, event PII check, and the scorecard.
+2. Real tools: replace `ToolServer` with an MCP client; keep the schema
+   check and the consent-token rule on your side of the boundary.
+3. Real transfer: map `warm_transfer` onto your telephony platform's
+   conference/consult-transfer API; keep the "no answer → back to AI" branch.
+4. Real sentiment: swap `escalation.score` for a model; keep the thresholds
+   configurable and re-run the cohort tests.
+5. Event sink: point `Publisher` at a broker producer; the envelope schema
+   is versioned (`schema_version`), so consumers can reject unknown versions.
+6. Scorecard: replace the simulated cost constants with your real per-minute
+   costs, and calibrate the index weights with the operations team.

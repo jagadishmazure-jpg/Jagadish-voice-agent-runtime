@@ -42,3 +42,24 @@ testable offline: 91 tests, and an 8-call scenario suite that completes
 - *"What's missing for production?"* — real audio path, PII redaction on
   transcripts, consent/recording rules, concurrency and provider limits.
   The repo's README lists these as planned, not built.
+
+## AI and human on one call (contact/)
+
+- **"How do you stop the customer repeating themselves after a transfer?"**
+  Treat the handoff as a data contract, not a courtesy. The packet carries
+  verified identity, intent, entities, actions taken, the open question,
+  sentiment trend and a masked summary. I measured it: 0 repeat questions
+  with the packet vs 722 without, over 179 answered transfers in 300
+  simulated calls.
+- **Warm vs blind transfer.** Conference the human in before the AI leaves;
+  if nobody answers, the caller stays with the AI and is offered a callback.
+  A blind-transfer baseline drops the call in the same case — kept as a test.
+- **Consent stays outside the model.** Side-effecting tools need a
+  single-use token the confirmation gate mints; "yes, wait, no" and a
+  low-confidence "yes" never produce one.
+- **Scorecard honesty.** Cost per resolved call divides by resolved calls
+  only and rejects negative costs; the weighted index has documented
+  weights and normalisation, so it is reproducible. The numbers are
+  simulated and labelled that way.
+- **PII.** Masking runs before the packet, the event sink and the log
+  formatter. Cards are Luhn-checked so order numbers and dates survive.
